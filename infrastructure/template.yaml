@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Traffic Cam - Full Stack Infrastructure
+
+Parameters:
+  OpenWeatherApiKey:
+    Type: String
+    NoEcho: true
+    Description: OpenWeatherMap API Key
+
+Resources:
+
+  # DynamoDB Table
+  TrafficStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: traffic-state
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: stationId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: stationId
+          KeyType: HASH
+
+  # Secrets Manager
+  ApiKeysSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: traffic-cam/api-keys
+      SecretString: !Sub '{"OPENWEATHER_API_KEY":"${OpenWeatherApiKey}"}'
+
+  # IAM Role for Lambda
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: traffic-cam-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: TrafficCamPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                Resource: !GetAtt TrafficStateTable.Arn
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref ApiKeysSecret
+
+  # Lambda Function
+  TrafficStateUpdater:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: traffic-state-updater
+      Runtime: python3.12
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': 'placeholder'}
+
+  # EventBridge Rule
+  SchedulerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: traffic-state-scheduler
+      ScheduleExpression: rate(1 minute)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt TrafficStateUpdater.Arn
+          Id: TrafficStateUpdaterTarget
+
+  # Permission for EventBridge to invoke Lambda
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref TrafficStateUpdater
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt SchedulerRule.Arn
+
+  # S3 Bucket for frontend
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'traffic-cam-frontend-${AWS::AccountId}'
+      WebsiteConfiguration:
+        IndexDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  # S3 Bucket Policy
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${FrontendBucket.Arn}/*'
+
+  # API Gateway
+  TrafficApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: traffic-cam-api
+
+  StateResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref TrafficApi
+      ParentId: !GetAtt TrafficApi.RootResourceId
+      PathPart: state
+
+  StateMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref TrafficApi
+      ResourceId: !Ref StateResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub >
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TrafficStateUpdater.Arn}/invocations
+
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: StateMethod
+    Properties:
+      RestApiId: !Ref TrafficApi
+      StageName: prod
+
+Outputs:
+  ApiEndpoint:
+    Value: !Sub 'https://${TrafficApi}.execute-api.${AWS::Region}.amazonaws.com/prod/state'
+    Description: API Gateway endpoint
+
+  FrontendBucketName:
+    Value: !Ref FrontendBucket
+    Description: S3 bucket for frontend files
