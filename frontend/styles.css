@@ -1,0 +1,111 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0a0a;
+  color: #fff;
+  font-family: sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-wrapper {
+  width: 100%;
+  max-width: 900px;
+  padding: 2rem;
+  text-align: center;
+}
+
+h1 {
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+  letter-spacing: .05em;
+}
+
+#status-bar {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+#status-bar span {
+  padding: .3rem .9rem;
+  border-radius: 20px;
+  font-size: .85rem;
+  font-weight: 500;
+  background: #222;
+  text-transform: capitalize;
+}
+
+#video-border {
+  border: 4px solid #444;
+  border-radius: 8px;
+  padding: 6px;
+  transition: border-color .5s, box-shadow .5s;
+}
+
+#player-wrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+#player {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transition: filter .8s;
+}
+
+#last-updated {
+  margin-top: 1rem;
+  font-size: .75rem;
+  color: #555;
+}
+
+/* Traffic states */
+body.state-low #video-border {
+  border-color: #2ecc71;
+  box-shadow: 0 0 12px #2ecc7144;
+}
+body.state-medium #video-border {
+  border-color: #f39c12;
+  box-shadow: 0 0 12px #f39c1244;
+}
+body.state-medium #player {
+  filter: sepia(.3) saturate(1.5) hue-rotate(-10deg);
+}
+body.state-high #video-border {
+  border-color: #e74c3c;
+  box-shadow: 0 0 20px #e74c3c88;
+  animation: shake .3s infinite;
+}
+body.state-high #player {
+  filter: sepia(.6) saturate(2) hue-rotate(-20deg);
+}
+
+/* Weather overlays */
+body.weather-rain #player {
+  filter: brightness(.8) saturate(.7) hue-rotate(180deg);
+}
+body.weather-snow #player {
+  filter: brightness(1.2) saturate(.3);
+}
+
+/* Time overlays */
+body.time-night #player {
+  filter: brightness(.6) saturate(.5);
+}
+body.time-evening #player {
+  filter: brightness(.85) sepia(.2);
+}
+
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}

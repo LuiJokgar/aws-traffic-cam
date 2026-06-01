@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asunción Traffic Cam</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-wrapper">
+    <h1>Asunción Live Traffic</h1>
+    <div id="status-bar">
+      <span id="traffic-badge">Loading...</span>
+      <span id="weather-badge"></span>
+      <span id="time-badge"></span>
+    </div>
+    <div id="video-container">
+      <div id="video-border">
+        <div id="player-wrapper">
+          <video id="player" playsinline></video>
+        </div>
+      </div>
+    </div>
+    <p id="last-updated"></p>
+  </div>
+  <script src="https://player.live-video.net/1.24.0/amazon-ivs-player.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
